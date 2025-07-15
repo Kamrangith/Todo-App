@@ -1,10 +1,11 @@
 {
   "name": "Ultimate Todo App",
   "short_name": "TodoApp",
-  "start_url": ".",
+  "description": "A beautiful, offline-capable, voice-enabled Todo app.",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#6366f1",
+  "theme_color": "#4f46e5",
   "icons": [
     {
       "src": "icons/icon-192.png",

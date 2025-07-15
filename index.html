@@ -7,7 +7,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="manifest.JSON">
   <SCript src="service-worker.js"></SCript>
+  <link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#4f46e5" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+
   <script>
+
+
+
     tailwind.config = {
       darkMode: 'class',
       theme: {
@@ -271,6 +278,23 @@ if ('serviceWorker' in navigator) {
     });
 
     renderTodos();
+
+
+
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("service-worker.js").then(() => {
+      console.log("✅ Service Worker Registered!");
+    }).catch((err) => {
+      console.error("❌ SW registration failed:", err);
+    });
+  });
+}
+
+
+
+
   </script>
 </body>
 </html>
