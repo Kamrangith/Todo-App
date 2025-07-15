@@ -2,9 +2,11 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ultimate Todo App</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="manifest.JSON">
+  <SCript src="service-worker.js"></SCript>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -15,8 +17,8 @@
           },
           keyframes: {
             fadeIn: {
-              "0%": { opacity: 0, transform: "translateY(10px)" },
-              "100%": { opacity: 1, transform: "translateY(0)" }
+              '0%': { opacity: 0, transform: 'translateY(10px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' }
             }
           }
         }
@@ -24,78 +26,196 @@
     }
   </script>
 </head>
-<body class="bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-gray-900 dark:to-black min-h-screen flex items-center justify-center px-4">
 
-  <div class="backdrop-blur-xl bg-white/90 dark:bg-gray-800/80 shadow-2xl rounded-3xl w-full max-w-xl p-6 animate-fadeIn">
-    <div class="flex items-center justify-between mb-4">
-      <h1 class="text-3xl font-bold text-gray-800 dark:text-white">📝 Todo List</h1>
-      <button onclick="toggleDarkMode()" class="text-sm text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">
-        🌙 Toggle Mode
-      </button>
+
+<!-- PWA Meta -->
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#6366f1" />
+<link rel="icon" href="icons/icon-192.png" />
+
+
+
+<body class="bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 dark:from-gray-800 dark:via-gray-900 dark:to-black min-h-screen flex items-center justify-center px-4">
+  <div class="backdrop-blur-xl bg-white/90 dark:bg-gray-800/80 shadow-2xl rounded-3xl w-full max-w-3xl p-6 animate-fadeIn">
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="text-3xl font-bold text-gray-800 dark:text-white">📋 Ultimate Todo</h1>
+      <div class="flex space-x-3">
+        <button onclick="exportTodos()" class="text-sm text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">📤 Export</button>
+        <label class="text-sm cursor-pointer text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">
+          📥 Import
+          <input type="file" id="import-file" class="hidden" accept="application/json" onchange="importTodos(event)" />
+        </label>
+        <button onclick="toggleDarkMode()" class="text-sm text-gray-600 dark:text-gray-300 hover:text-black dark:hover:text-white transition">🌓 Toggle</button>
+      </div>
     </div>
 
-    <div class="flex gap-2 mb-6">
-      <input id="todo-input" type="text" placeholder="Add a task..."
-        class="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition" />
-      <button onclick="addTodo()"
-        class="bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-3 rounded-xl font-medium transition">
-        Add
-      </button>
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+      <input id="todo-input" type="text" placeholder="Task name..."
+        class="flex-1 px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white focus:ring-2 focus:ring-indigo-400" />
+      <input id="todo-date" type="date" class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white" />
+      <select id="todo-priority" class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white">
+        <option value="low">Low</option>
+        <option value="medium">Medium</option>
+        <option value="high">High</option>
+      </select>
+      <input id="todo-category" type="text" placeholder="Category"
+        class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-800 dark:text-white w-32" />
+      <button onclick="addTodo()" class="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-3 rounded-xl transition">Add</button>
+      <button onclick="startVoiceInput()" class="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-3 rounded-xl transition">🎤</button>
+    </div>
+
+    <div class="mb-4 flex justify-between text-sm text-gray-600 dark:text-gray-300">
+      <span>Filter:</span>
+      <div class="space-x-2">
+        <button onclick="filterTodos('all')" class="hover:underline">All</button>
+        <button onclick="filterTodos('active')" class="hover:underline">Active</button>
+        <button onclick="filterTodos('completed')" class="hover:underline">Completed</button>
+      </div>
     </div>
 
     <ul id="todo-list" class="space-y-3">
-      <!-- Todo items will be rendered here -->
+      <!-- Todos appear here -->
     </ul>
   </div>
 
   <script>
+
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(() => console.log("✅ Service Worker Registered"))
+      .catch(err => console.error("❌ SW Registration Failed:", err));
+  });
+}
+
+
+
     const input = document.getElementById("todo-input");
+    const dateInput = document.getElementById("todo-date");
+    const priorityInput = document.getElementById("todo-priority");
+    const categoryInput = document.getElementById("todo-category");
     const list = document.getElementById("todo-list");
+    const fileInput = document.getElementById("import-file");
 
     let todos = JSON.parse(localStorage.getItem("todos") || "[]");
+    let filter = 'all';
+
+    function notify(message) {
+      if (Notification.permission === 'granted') {
+        new Notification(message);
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') new Notification(message);
+        });
+      }
+    }
 
     function renderTodos() {
       list.innerHTML = "";
       todos.forEach((todo, index) => {
-        const li = document.createElement("li");
-        li.className = "flex items-center justify-between bg-white dark:bg-gray-900 px-4 py-3 rounded-xl shadow-md animate-fadeIn";
+        if (filter === 'active' && todo.completed) return;
+        if (filter === 'completed' && !todo.completed) return;
 
-        const span = document.createElement("span");
-        span.textContent = todo.text;
-        span.className = `flex-1 cursor-pointer transition ${
-          todo.completed ? "line-through text-gray-400" : "text-gray-800 dark:text-white"
-        }`;
-        span.onclick = () => toggleComplete(index);
+        const li = document.createElement("li");
+        li.setAttribute("draggable", true);
+        li.setAttribute("data-index", index);
+        li.className = "flex flex-col sm:flex-row sm:items-center justify-between bg-white dark:bg-gray-900 px-4 py-3 rounded-xl shadow-md animate-fadeIn";
+
+        li.ondragstart = (e) => e.dataTransfer.setData("text/plain", index);
+        li.ondragover = (e) => e.preventDefault();
+        li.ondrop = (e) => {
+          const from = e.dataTransfer.getData("text/plain");
+          const to = li.dataset.index;
+          reorderTodos(+from, +to);
+        };
+
+        const infoDiv = document.createElement("div");
+        infoDiv.className = "flex-1 mb-2 sm:mb-0";
+
+        const task = document.createElement("input");
+        task.type = "text";
+        task.value = todo.text;
+        task.className = `w-full bg-transparent border-none outline-none font-medium ${todo.completed ? 'line-through text-gray-400' : 'text-gray-800 dark:text-white'}`;
+        task.onchange = (e) => editTodo(index, e.target.value);
+
+        const meta = document.createElement("div");
+        meta.className = "text-sm text-gray-500 dark:text-gray-400";
+        meta.innerHTML = `${todo.date ? `📅 ${todo.date}` : ""} ${todo.priority ? `| ⚡ ${todo.priority}` : ""} ${todo.category ? `| 🏷️ ${todo.category}` : ""}`;
+
+        infoDiv.appendChild(task);
+        infoDiv.appendChild(meta);
+
+        const actions = document.createElement("div");
+        actions.className = "flex items-center space-x-3";
+
+        const check = document.createElement("input");
+        check.type = "checkbox";
+        check.checked = todo.completed;
+        check.className = "w-5 h-5 text-indigo-600";
+        check.onchange = () => toggleComplete(index);
 
         const delBtn = document.createElement("button");
         delBtn.innerHTML = "🗑️";
-        delBtn.className = "ml-4 text-red-500 hover:text-red-700 text-xl transition";
+        delBtn.className = "text-red-500 hover:text-red-700 text-xl transition";
         delBtn.onclick = () => deleteTodo(index);
 
-        li.appendChild(span);
-        li.appendChild(delBtn);
+        actions.appendChild(check);
+        actions.appendChild(delBtn);
+
+        li.appendChild(infoDiv);
+        li.appendChild(actions);
         list.appendChild(li);
       });
     }
 
     function addTodo() {
       const text = input.value.trim();
+      const date = dateInput.value;
+      const priority = priorityInput.value;
+      const category = categoryInput.value.trim();
       if (!text) return;
 
-      todos.push({ text, completed: false });
+      todos.push({ text, completed: false, date, priority, category });
       saveTodos();
       input.value = "";
+      dateInput.value = "";
+      priorityInput.value = "low";
+      categoryInput.value = "";
       input.focus();
+      notify(`Added: ${text}`);
+    }
+
+    function editTodo(index, newText) {
+      todos[index].text = newText.trim();
+      saveTodos();
     }
 
     function toggleComplete(index) {
       todos[index].completed = !todos[index].completed;
       saveTodos();
+      const status = todos[index].completed ? 'Completed' : 'Marked active';
+      notify(`${status}: ${todos[index].text}`);
     }
 
     function deleteTodo(index) {
+      const deleted = todos[index].text;
       todos.splice(index, 1);
       saveTodos();
+      notify(`Deleted: ${deleted}`);
+    }
+
+    function reorderTodos(from, to) {
+      const item = todos.splice(from, 1)[0];
+      todos.splice(to, 0, item);
+      saveTodos();
+      notify("Reordered tasks");
+    }
+
+    function filterTodos(type) {
+      filter = type;
+      renderTodos();
     }
 
     function saveTodos() {
@@ -107,11 +227,49 @@
       document.documentElement.classList.toggle("dark");
     }
 
+    function exportTodos() {
+      const blob = new Blob([JSON.stringify(todos)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'todos.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importTodos(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          todos = JSON.parse(e.target.result);
+          saveTodos();
+          notify("Imported todos successfully");
+        } catch (err) {
+          alert("Invalid file");
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function startVoiceInput() {
+      if (!('webkitSpeechRecognition' in window)) return alert("Speech recognition not supported");
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        input.value = transcript;
+        addTodo();
+      };
+      recognition.start();
+    }
+
     input.addEventListener("keydown", (e) => {
       if (e.key === "Enter") addTodo();
     });
 
-    // Initialize
     renderTodos();
   </script>
 </body>
